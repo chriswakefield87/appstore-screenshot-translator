@@ -1,0 +1,27 @@
+# Secrets
+.env
+.env.*
+
+# Outputs from running the skill (sample/test runs)
+translated/
+out/
+output/
+*.manifest.json
+*.translated.json
+
+# User screenshots — never commit input/output images
+*.png
+*.jpg
+*.jpeg
+*.webp
+!docs/**/*.png
+!docs/**/*.jpg
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Editors
+.vscode/
+.idea/
+*.swp
