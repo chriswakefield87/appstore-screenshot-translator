@@ -1,5 +1,7 @@
 # appstore-screenshot-translator
 
+![English app store screenshots translated to Italian, preserving the original layout](docs/hero.png)
+
 A [Claude Code](https://claude.com/claude-code) plugin that localizes App Store / Play Store screenshots into multiple languages while preserving the original visual layout — fonts, colors, position, background photography, device frames, everything except the words.
 
 It reads your project for context, walks you through a language picker and screenshot drop, shows you a translation table to confirm before spending money, then regenerates each image via the Gemini Nano Banana MCP and verifies the result.
