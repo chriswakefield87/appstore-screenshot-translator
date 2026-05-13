@@ -57,19 +57,22 @@ Outputs land in `<project_root>/marketing/<lang>/<image>.png`.
 
 ## Output layout
 
-For two screenshots (`hero.png`, `home.png`) translated to Spanish, French, and Japanese:
+For three screenshots (`1.png`, `2.png`, `3.png`) translated to Spanish, French, and Japanese:
 
 ```
 <project_root>/marketing/
 ├── es/
-│   ├── hero.png
-│   └── home.png
+│   ├── 1.png
+│   ├── 2.png
+│   └── 3.png
 ├── fr/
-│   ├── hero.png
-│   └── home.png
+│   ├── 1.png
+│   ├── 2.png
+│   └── 3.png
 └── ja/
-    ├── hero.png
-    └── home.png
+    ├── 1.png
+    ├── 2.png
+    └── 3.png
 ```
 
 Just the localized images — no manifests, no JSON, no logs.
