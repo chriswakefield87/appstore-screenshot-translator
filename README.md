@@ -27,7 +27,7 @@ claude mcp list
 ### 2. Install the plugin
 
 ```
-/plugin install https://github.com/<your-username>/appstore-screenshot-translator
+/plugin install https://github.com/chriswakefield87/appstore-screenshot-translator
 ```
 
 Restart Claude Code. `/appstore-screenshot-translator` is now available as a slash command.
