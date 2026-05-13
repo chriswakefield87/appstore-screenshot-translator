@@ -14,20 +14,13 @@ It reads your project for context, walks you through a language picker and scree
 npm install -g @houtini/gemini-mcp
 ```
 
-Then add it to your Claude Code MCP config (`~/.claude/settings.json` or a project `.mcp.json`), inserting your Gemini API key from [aistudio.google.com/apikey](https://aistudio.google.com/apikey):
+Then register it with Claude Code, inserting your Gemini API key from [aistudio.google.com/apikey](https://aistudio.google.com/apikey):
 
-```json
-{
-  "mcpServers": {
-    "gemini": {
-      "command": "gemini-mcp",
-      "env": { "GEMINI_API_KEY": "your_key_here" }
-    }
-  }
-}
+```bash
+claude mcp add --scope user gemini --env GEMINI_API_KEY=your_key_here -- gemini-mcp
 ```
 
-Restart Claude Code, then verify:
+Verify it's connected:
 
 ```bash
 claude mcp list
