@@ -241,6 +241,14 @@ For right-to-left languages (Arabic `ar`, Hebrew `he`), add: "This is a right-to
 
 The tool writes the edited image to `outputPath` and returns the saved path. Independent (image × language) calls can run in parallel.
 
+### Clean up the sibling HTML preview
+
+`@houtini/gemini-mcp` writes a sibling `.html` preview file next to every `outputPath` (e.g. for `marketing/fr/1.png` it also drops `marketing/fr/1.html`). The MCP has no flag to suppress it. After each successful `edit_image` call, delete the sibling `.html` — it's a side-effect artifact, not part of the deliverable. The contract is "PNGs only under `marketing/`".
+
+```bash
+rm -f "<outputPath without .png>.html"
+```
+
 ### Progress messaging
 
 Per generated image, emit **one** short tick line — nothing more:
