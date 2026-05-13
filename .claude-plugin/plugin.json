@@ -1,0 +1,8 @@
+{
+  "name": "appstore-screenshot-translator",
+  "version": "1.0.0",
+  "description": "Translate App Store / Play Store screenshots into other languages while preserving the original visual layout.",
+  "author": {
+    "name": "Chris Wakefield"
+  }
+}

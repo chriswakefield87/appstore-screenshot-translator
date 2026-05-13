@@ -8,7 +8,7 @@ user-invocable: true
 
 This skill is **user-invocable**: it runs when the user types `/appstore-screenshot-translator`. Walk them through the phases below in order. Do not skip phases without explicit instruction from the user.
 
-The skill orchestrates: **read the user's project for context → guided language picker → guided screenshot collection → OCR + translate in-conversation → regenerate each image via Gemini Nano Banana → write outputs to `<project>/marketing/<lang>/`**.
+The skill orchestrates: **read the user's project for context → guided language picker → guided screenshot collection → OCR + translate in-conversation → confirm the translation plan with the user → regenerate each image via Gemini Nano Banana → text-diff verify each output → write outputs to `<project>/marketing/<lang>/`**.
 
 ---
 
@@ -106,19 +106,9 @@ Do not delay translation for this phase — it's quick reading, not a deliverabl
 
 ---
 
-## Phase 4 — Announce + create output dirs
+## Phase 4 — Create output dirs (silent)
 
-Once languages and screenshots are confirmed and context is internalized, tell the user **one** brief line setting expectations, then start working:
-
-> Generating `<N>` images (`<screenshots>` screenshots × `<languages>` languages). This may take a few minutes — Nano Banana runs roughly 10–20 seconds per image, so larger batches take longer.
-
-If the total is small (under 5 images), drop the timing hint and just say:
-
-> Generating `<N>` images (`<screenshots>` screenshots × `<languages>` languages)…
-
-The goal is to set a realistic expectation without being noisy when the batch is quick.
-
-Silently create the output directories — don't narrate this:
+Once languages and screenshots are confirmed and context is internalized, silently create the output directories — don't narrate this, and don't announce timing yet (announce happens after the user confirms the plan in Phase 5.5):
 
 ```bash
 for lang in <each selected lang code>; do mkdir -p "marketing/$lang"; done
@@ -139,7 +129,7 @@ Use the BCP-47 codes (`es`, `fr`, `pt-BR`, `zh-Hans`, etc.) as directory names. 
     └── home.png
 ```
 
-**Do not write OCR manifests, translated manifests, or any other intermediate JSON to disk.** All of that stays in conversation memory. The user sees images, not bookkeeping.
+**The only files that should ever appear under `marketing/` are the final localized PNGs.** No OCR manifests, no translated manifests, no per-language JSON, no `.txt` logs, no debug dumps — nothing but the images. OCR results, translations, and progress state all live in conversation memory only. If you catch yourself reaching for `Write` during this skill, stop: the only writer is the Gemini `edit_image` MCP call, which produces a PNG at `outputPath`.
 
 ---
 
@@ -167,13 +157,57 @@ For each target language, translate every captured element in-conversation. Hold
 - **Pass through verbatim:** brand names, app names, hashtags, URLs, proper nouns, and feature names from the codebase.
 - **Note overflow internally.** If a translation is >1.5× the source character count AND the role is `headline` or `button`, remember to add a wrap hint to the Nano Banana prompt — but don't surface this to the user as a warning.
 
-Carry the translations directly into Phase 6 — do not write them to disk first.
+Carry the translations into Phase 5.5 — do not write them to disk first.
+
+---
+
+## Phase 5.5 — Show the translation plan, ask to confirm
+
+Before burning Nano Banana calls, show the user a compact preview of every text change so they can spot bad word choices before you generate. One round-trip prevents a batch of wrong images.
+
+Display one block per screenshot. Group source strings on the left and each target language's translation in its own column (or slash-separated if there are only 2–3 languages). Append a short list of strings you're keeping verbatim (brand names, prices, dates, status-bar values) so the user sees the omissions too.
+
+Example format for 2 languages:
+
+```
+Translation plan — 3 screenshots × 2 languages (es, fr):
+
+[1.png]
+  TRACK           → CONTROLA / SUIVEZ
+  PAYMENTS        → PAGOS / PAIEMENTS
+  PER WEEK        → POR SEMANA / PAR SEMAINE
+  PER MONTH       → AL MES / PAR MOIS
+  PER YEAR        → AL AÑO / PAR AN
+  Due today       → Vence hoy / Dû aujourd'hui
+  Due 14 May      → Vence 14 may / Dû le 14 mai
+  Due 15 May      → Vence 15 may / Dû le 15 mai
+  Mark paid       → Pagado / Payé
+  Kept as-is: ChatGPT, Spotify, Netflix, Disney+, Crunchyroll, £9.69, £41.98, £503.76, £20.00, £11.99, £9.99, £4.99
+
+[2.png]
+  MANAGE          → GESTIONA / GÉREZ
+  ...
+
+Reply "go" to generate, or tell me what to change (e.g. "for French use 'GÉRER' instead of 'GÉREZ'", or "translate Streaming as well").
+```
+
+For 4+ languages, use a markdown table instead so columns stay readable.
+
+Keep it terse — one line per source string. If a source string repeats across screenshots (e.g. "Due today"), list it on each screenshot anyway so the user sees it in context.
+
+Wait for the user's reply. If they ask for changes, apply them and re-display only the affected rows. Only proceed to Phase 6 after explicit "go" / "yes" / "looks good" (or equivalent). Once confirmed, announce timing:
+
+> Generating `<N>` images. This may take a few minutes — Nano Banana runs roughly 10–20 seconds per image.
+
+If the total is under 5 images, drop the timing hint and say:
+
+> Generating `<N>` images…
 
 ---
 
 ## Phase 6 — Regenerate images via Nano Banana
 
-For each (image × language) pair, call the `edit_image` tool from `@houtini/gemini-mcp` using the translations you're holding in memory from Phase 5:
+For each (image × language) pair, call the `edit_image` tool from `@houtini/gemini-mcp` using the translations confirmed in Phase 5.5:
 
 ```json
 {
@@ -187,7 +221,7 @@ For each (image × language) pair, call the `edit_image` tool from `@houtini/gem
 
 Always pass `filePath` (not base64) — Nano Banana edits work on the full-resolution image; base64 transport caps at 1 MB. Both paths must be absolute.
 
-Build the `prompt` from the in-memory translations using this template:
+Build the `prompt` from the confirmed translations using this template:
 
 ```
 Edit this app store screenshot to localize it into <Target Language Name>. Replace ONLY the text shown below — keep every other pixel (background, photo, UI chrome, icons, device frame, decorative elements) byte-identical to the input. Match the original font weight, casing style, color, alignment, and approximate size for each replacement. Do not translate brand names, app names, or proper nouns unless they have an official localized form.
@@ -205,7 +239,7 @@ For any element you flagged in Phase 5 as >1.5× length expansion on a headline/
 
 For right-to-left languages (Arabic `ar`, Hebrew `he`), add: "This is a right-to-left language — flip text alignment direction where appropriate (e.g. left-aligned text becomes right-aligned), but keep all non-text layout (icons, photos, device frame, decorative elements) unchanged."
 
-The tool writes the edited image to `outputPath` and returns the saved path.
+The tool writes the edited image to `outputPath` and returns the saved path. Independent (image × language) calls can run in parallel.
 
 ### Progress messaging
 
@@ -213,16 +247,19 @@ Per generated image, emit **one** short tick line — nothing more:
 
 > ✓ `marketing/fr/hero.png`
 
-That's the user's only visible signal of progress. Don't paste the prompt, the translations, or the manifest. Don't ask the user to confirm intermediate steps.
+That's the user's only visible signal of progress. Don't paste the prompt, the translations, or any state beyond what Phase 5.5 already showed. Don't pause mid-batch — confirmation happened once, in Phase 5.5.
 
-### Verify silently
+### Verify (text-diff, not just visual)
 
-After each generation, briefly Read the output image and check:
+After each generation, Read the output image and use vision to enumerate every word actually rendered. Then run a deterministic checklist against the confirmed Phase 5.5 plan for this (image × language) pair:
 
-- The translated text actually appears (not the original).
-- Background, device frame, icons, and non-text elements look unchanged from the source.
+1. **Every translated string from the plan must appear in the output** — character-for-character, allowing only whitespace and quote-style variations. If you translated "Due 14 May" → "Vence 14 may", the output must contain "Vence 14 may" — not "Vence 14 mayo", not "Vencehoy", not "suscoipción" when you wrote "suscripción".
+2. **No source-language string from the plan should appear** — if the source said "DETAILS" and you translated it to "DÉTAILS", "DETAILS" must NOT be in the output.
+3. **Strings marked "kept as-is" should appear unchanged** (brand names, prices, status-bar values).
 
-If either check fails, retry **once** with a more explicit prompt ("the previous output still showed the English text 'X' in the upper area — replace it with 'Y'"). Do this silently — don't tell the user about the retry unless it also fails. After one failed retry, surface the specific problem image to the user (with both source + bad output paths) and continue with the rest of the queue rather than blocking.
+If any check fails, retry **once** — name the failed strings explicitly in the retry prompt ("the previous output rendered 'suscoipción' but I need 'suscripción' — replace every instance"). Do this silently — don't tell the user about the retry unless it also fails.
+
+If the retry still fails, surface the specific problem image with both source + bad output paths and which strings are wrong, then continue with the rest of the queue rather than blocking.
 
 ---
 
@@ -242,6 +279,7 @@ Only mention specifics if something needs the user's attention (a per-image retr
 - **Do not invent text that wasn't in the original.** Mark unreadable text `<UNREADABLE>` and ask.
 - **Do not call Nano Banana without the source image attached.** Text-only prompts produce a from-scratch image, not a localized edit.
 - **Do not loop on failure.** One retry per image, then surface.
+- **Do not skip Phase 5.5.** The translation table preview is what stops bad word choices from turning into bad batches.
 - **Do not commit user images or API keys to the skill repo.** The `.gitignore` covers this.
-- **Do not run all languages in parallel without sequential per-image OCR.** The manifest must be written before any translation for that image can start.
-- **Do not write outputs outside `<project_root>/marketing/`.** That's the contract with the user; respect it.
+- **Do not start translating an image until you've fully catalogued its text in memory.** The OCR pass for an image must be complete before any of that image's translations begin — otherwise translations drift from the actual source strings.
+- **Do not write outputs outside `<project_root>/marketing/`, and do not write anything other than the final localized PNGs.** No `.manifest.json`, no `.translated.json`, no logs, no per-image debug files — just the images. That's the contract with the user; respect it.
