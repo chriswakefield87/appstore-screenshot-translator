@@ -1,0 +1,17 @@
+{
+  "name": "appstore-screenshot-translator",
+  "description": "Single-plugin marketplace hosting the App Store screenshot translator skill.",
+  "owner": {
+    "name": "Chris Wakefield"
+  },
+  "plugins": [
+    {
+      "name": "appstore-screenshot-translator",
+      "source": {
+        "source": "github",
+        "repo": "chriswakefield87/appstore-screenshot-translator"
+      },
+      "description": "Translate App Store / Play Store screenshots into other languages while preserving the original visual layout."
+    }
+  ]
+}
