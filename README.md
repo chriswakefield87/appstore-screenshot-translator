@@ -24,20 +24,10 @@ Verify it's connected:
 claude mcp list
 ```
 
-### 2. Install the plugin
-
-From your shell:
+### 2. Install the skill
 
 ```bash
-claude plugin marketplace add chriswakefield87/appstore-screenshot-translator
-claude plugin install appstore-screenshot-translator@appstore-screenshot-translator
-```
-
-Or from inside Claude Code:
-
-```
-/plugin marketplace add chriswakefield87/appstore-screenshot-translator
-/plugin install appstore-screenshot-translator@appstore-screenshot-translator
+claude install-skill github.com/chriswakefield87/appstore-screenshot-translator
 ```
 
 Restart Claude Code. `/appstore-screenshot-translator` is now available as a slash command.
@@ -92,7 +82,7 @@ One Gemini Nano Banana image-edit call per (screenshot × language). 10 screensh
 
 ## Troubleshooting
 
-**Slash command doesn't show up** — restart Claude Code. Check `/plugin list` shows `appstore-screenshot-translator` as installed.
+**Slash command doesn't show up** — restart Claude Code. Confirm the skill lives at `~/.claude/skills/appstore-screenshot-translator/` and contains `SKILL.md`.
 
 **"I need the Gemini Nano Banana MCP server configured"** — `claude mcp list` should show `gemini` as connected. Restart Claude Code after adding it.
 
