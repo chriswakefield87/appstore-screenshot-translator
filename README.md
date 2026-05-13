@@ -29,7 +29,8 @@ claude mcp list
 ### 2. Install the skill
 
 ```bash
-claude install-skill github.com/chriswakefield87/appstore-screenshot-translator
+git clone https://github.com/chriswakefield87/appstore-screenshot-translator.git \
+  ~/.claude/skills/appstore-screenshot-translator
 ```
 
 Restart Claude Code. `/appstore-screenshot-translator` is now available as a slash command.
