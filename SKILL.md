@@ -213,13 +213,18 @@ For each (image × language) pair, call the `edit_image` tool from `@houtini/gem
 {
   "prompt": "<see template below>",
   "images": [
-    { "filePath": "<absolute path to the source screenshot>" }
+    {
+      "filePath": "<absolute path to the source screenshot>",
+      "mediaResolution": "MEDIA_RESOLUTION_ULTRA_HIGH"
+    }
   ],
   "outputPath": "<absolute path: <project_root>/marketing/<lang_code>/<image_stem>.png>"
 }
 ```
 
 Always pass `filePath` (not base64) — Nano Banana edits work on the full-resolution image; base64 transport caps at 1 MB. Both paths must be absolute.
+
+Always pass `mediaResolution: MEDIA_RESOLUTION_ULTRA_HIGH` on each input. This gives Gemini the maximum input token budget (2000+ tokens per image vs the default 1120) so it sees fine text detail in the source — translations come back sharper. Costs more per call but is worth it because the post-verify upscale step (below) softens text either way, and starting from a sharper render minimises that loss.
 
 Build the `prompt` from the confirmed translations using this template:
 
@@ -232,7 +237,7 @@ Text replacements (preserve position and styling exactly):
 2. [<role>, <position>, <style>] "<original>" → "<translated>"
 ...
 
-Output a single image at the same resolution and aspect ratio as the input.
+Output a single image, preserving the same aspect ratio as the input.
 ```
 
 For any element you flagged in Phase 5 as >1.5× length expansion on a headline/button, append a final paragraph to the prompt: "Note: the translation for `<role>` text is longer than the original — wrap to multiple lines if needed rather than shrinking aggressively."
@@ -268,6 +273,30 @@ After each generation, Read the output image and use vision to enumerate every w
 If any check fails, retry **once** — name the failed strings explicitly in the retry prompt ("the previous output rendered 'suscoipción' but I need 'suscripción' — replace every instance"). Do this silently — don't tell the user about the retry unless it also fails.
 
 If the retry still fails, surface the specific problem image with both source + bad output paths and which strings are wrong, then continue with the rest of the queue rather than blocking.
+
+### Upscale to source dimensions
+
+Gemini Nano Banana Pro returns images at roughly 700×1500 regardless of source size — far too small for App Store Connect upload (which requires native pixel dimensions, e.g. 1242×2688 for the 6.7" iPhone slot). After verify passes, upscale the output to match the source dimensions exactly. The aspect ratio already matches, so this is a clean linear scale.
+
+On macOS, use `sips` (built-in, no dependencies):
+
+```bash
+src_w=$(sips -g pixelWidth "<source path>" | awk '/pixelWidth/ {print $2}')
+src_h=$(sips -g pixelHeight "<source path>" | awk '/pixelHeight/ {print $2}')
+sips -z "$src_h" "$src_w" "<output path>" >/dev/null
+```
+
+Note `sips -z` takes height first, then width — easy to swap by mistake.
+
+On Linux / Windows, fall back to ImageMagick:
+
+```bash
+magick "<output path>" -resize "${src_w}x${src_h}!" "<output path>"
+```
+
+If neither tool is available, surface this once to the user and skip the upscale (deliver the small image as-is, with a note that they'll need to upscale manually before uploading to App Store Connect).
+
+Run upscale silently — it's part of the deliverable, not a step worth narrating. Emit the tick line only after upscale completes successfully.
 
 ---
 
